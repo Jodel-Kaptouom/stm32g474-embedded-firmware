@@ -105,7 +105,21 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  if (GPIOC->IDR & (1U << 13))
+	  {
+		  GPIOA->BSRR = (1U << 5);
 
+	  }
+
+	  else
+	  {
+		  GPIOA->BSRR = (1U << (5 + 16));
+	  }
+	  //HAL_Delay(500);
+
+	  // Éteindre la LED (Reset PA5 via bit 5 + 16 = 21)
+
+	  //HAL_Delay(500);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
