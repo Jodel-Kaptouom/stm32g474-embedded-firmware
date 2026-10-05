@@ -116,16 +116,16 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  background_counter++;
-	  if ((background_counter % 500000) ==0)
-	  {
-		  GPIOA->BSRR ^= (1U << 5);
-	  }
-	  //GPIOA->BSRR |= (1U << 5);
-	  //HAL_Delay(1000);
+	  //background_counter++;
+	  //if ((background_counter % 500000) ==0)
+	  //{
+		//  GPIOA->BSRR ^= (1U << 5);
+	  //}
+	  GPIOA->BSRR |= (1U << 5);
+	  HAL_Delay(1000);
 
-	  //GPIOA->BSRR |= (1U << (5+16));
-	  //HAL_Delay(1000);
+	  GPIOA->BSRR |= (1U << (5+16));
+	  HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
