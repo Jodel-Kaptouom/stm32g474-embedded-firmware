@@ -16,6 +16,7 @@ The objective is to generate a **1 kHz PWM signal on PA5** without software-driv
 * [Verification](#verification)
 * [Key Registers](#key-registers)
 * [Engineering Notes](#engineering-notes)
+* [Feature Extension: EXTI13 Duty Control](#feature-extension-exti13-duty-control)
 * [Next Module](#next-module)
 
 ---
@@ -59,7 +60,7 @@ The objective is to generate a **1 kHz PWM signal on PA5** without software-driv
       PA5 / Alternate Function
 ```
 
-PA5 is configured for:
+PA5 is configured as:
 
 ```text
 TIM2_CH1 → AF1
@@ -98,10 +99,10 @@ Counter frequency:
 16 MHz / (15 + 1) = 1 MHz
 ```
 
-Therefore each timer count represents:
+Therefore:
 
 ```text
-1 µs
+1 timer tick = 1 µs
 ```
 
 With:
@@ -117,7 +118,7 @@ the PWM frequency is:
 1 MHz / (999 + 1) = 1 kHz
 ```
 
-The PWM period is therefore:
+The PWM period is:
 
 ```text
 1 ms
@@ -129,26 +130,17 @@ The PWM period is therefore:
 
 The duty cycle is controlled by `CCR1`.
 
-For example:
+Example:
 
 ```c
 TIM2->CCR1 = 250U;
 ```
 
-With:
+With `ARR = 999`, this produces approximately:
 
 ```text
-ARR = 999
-CCR1 = 250
+25% duty cycle
 ```
-
-the duty cycle is approximately:
-
-```text
-25%
-```
-
-Typical values:
 
 | `CCR1` | Approx. Duty |
 | -----: | -----------: |
@@ -162,25 +154,15 @@ Typical values:
 
 # PWM Channel Configuration
 
-Configure Channel 1 for PWM Mode 1:
-
 ```c
 TIM2->CCMR1 &= ~(0x7U << 4);
-TIM2->CCMR1 |=  (0x6U << 4);  /* OC1M = PWM Mode 1 */
+TIM2->CCMR1 |=  (0x6U << 4);  /* PWM Mode 1 */
 
 TIM2->CCMR1 |= (1U << 3);      /* OC1PE */
 TIM2->CCER  |= (1U << 0);      /* CC1E */
-```
 
-Set the initial duty cycle:
-
-```c
 TIM2->CCR1 = 250U;
-```
 
-Start the timer:
-
-```c
 TIM2->CR1 |= (1U << 0);        /* CEN */
 ```
 
@@ -188,18 +170,18 @@ TIM2->CR1 |= (1U << 0);        /* CEN */
 
 # Verification
 
-The PWM output can be verified using an oscilloscope or logic analyzer.
-
-Expected signal:
+Expected output on PA5:
 
 ```text
 Frequency:   1 kHz
 Period:      1 ms
 Duty cycle:  ~25%
-Output:      PA5 / TIM2_CH1
+Channel:     TIM2_CH1
 ```
 
-The key registers to inspect are:
+Verify with an oscilloscope or logic analyzer.
+
+Useful registers:
 
 ```text
 RCC->AHB2ENR
@@ -219,75 +201,164 @@ TIM2->CR1
 
 # Key Registers
 
-| Register        | Function                    |
-| --------------- | --------------------------- |
-| `RCC->AHB2ENR`  | GPIOA clock enable          |
-| `RCC->APB1ENR1` | TIM2 clock enable           |
-| `GPIOA->MODER`  | PA5 Alternate Function mode |
-| `GPIOA->AFR[0]` | PA5 → TIM2_CH1 / AF1        |
-| `TIM2->PSC`     | Timer prescaler             |
-| `TIM2->ARR`     | PWM period                  |
-| `TIM2->CCR1`    | PWM duty cycle              |
-| `TIM2->CCMR1`   | PWM mode configuration      |
-| `TIM2->CCER`    | Channel output enable       |
-| `TIM2->CR1`     | Timer enable                |
+| Register        | Function               |
+| --------------- | ---------------------- |
+| `RCC->AHB2ENR`  | GPIOA clock            |
+| `RCC->APB1ENR1` | TIM2 clock             |
+| `GPIOA->MODER`  | PA5 Alternate Function |
+| `GPIOA->AFR[0]` | PA5 → TIM2_CH1         |
+| `TIM2->PSC`     | Timer prescaler        |
+| `TIM2->ARR`     | PWM period             |
+| `TIM2->CCR1`    | Duty cycle             |
+| `TIM2->CCMR1`   | PWM mode               |
+| `TIM2->CCER`    | Channel enable         |
+| `TIM2->CR1`     | Timer enable           |
 
 ---
 
 # Engineering Notes
 
-### Hardware-generated waveform
+Once configured, TIM2 generates the PWM waveform autonomously.
 
-Once configured, TIM2 continuously generates the PWM signal without requiring:
+No software:
+
+* delay loop
+* GPIO toggling
+* PWM interrupt
+
+is required for continuous waveform generation.
+
+This provides deterministic timing while leaving the CPU available for application processing.
+
+---
+
+# Feature Extension: EXTI13 Duty Control
+
+The PWM output can also be controlled asynchronously using the **EXTI13 button interrupt** introduced in Module 02.
+
+Each button press advances the duty cycle:
 
 ```text
-CPU polling
-CPU delays
-PWM interrupts
-software GPIO toggling
+0% → 25% → 50% → 75% → ~100% → 0%
 ```
 
-The CPU is therefore free to execute other application code.
+Architecture:
 
-### Deterministic output
+```text
+B1 / PC13
+    │
+    ▼
+  EXTI13
+    │
+    ▼
+   NVIC
+    │
+    ▼
+   ISR
+    │
+    ▼
+TIM2->CCR1
+    │
+    ▼
+ PWM Duty Cycle
+```
 
-The waveform timing is controlled by the timer peripheral rather than software execution timing.
+The important design constraint is that the ISR performs **no blocking delay**.
 
-This is an important step toward the deterministic architecture required for:
+## ISR Implementation
 
-* motor control
-* power electronics
-* industrial automation
-* embedded control systems
+```c
+void EXTI15_10_IRQHandler(void)
+{
+    if (EXTI->PR1 & (1U << 13))
+    {
+        /* Clear EXTI13 pending flag (W1C) */
+        EXTI->PR1 = (1U << 13);
+
+        /* Persistent duty-cycle state */
+        static uint16_t duty = 0U;
+
+        /* 0% → 25% → 50% → 75% → ~100% → 0% */
+        duty += 250U;
+
+        if (duty > 1000U)
+        {
+            duty = 0U;
+        }
+
+        /* Limit CCR1 to ARR */
+        TIM2->CCR1 = (duty >= 1000U) ? 999U : duty;
+    }
+}
+```
+
+### Design Principles
+
+**Persistent state**
+
+```c
+static uint16_t duty;
+```
+
+preserves the duty-cycle value between interrupts without requiring a separate global variable.
+
+**No busy-waiting**
+
+The ISR contains no delay loop. This keeps interrupt execution short and avoids blocking other time-critical interrupts such as SysTick.
+
+**Hardware PWM remains autonomous**
+
+The ISR only updates:
+
+```c
+TIM2->CCR1
+```
+
+TIM2 continues generating the PWM waveform independently of the CPU.
+
+**Register saturation**
+
+Since:
+
+```text
+ARR = 999
+```
+
+the compare value is limited to:
+
+```text
+CCR1 ≤ 999
+```
 
 ---
 
 # Module Outcome
 
-The architecture has evolved from software-controlled timing to autonomous hardware timing:
+The module now combines two hardware-driven mechanisms:
 
 ```text
-Module 03
-SysTick
-   │
-   ▼
-Software Timebase
+             ┌──────────────┐
+             │    EXTI13    │
+             │   Button B1  │
+             └──────┬───────┘
+                    │
+                    ▼
+                  NVIC
+                    │
+                    ▼
+                   ISR
+                    │
+                    ▼
+              TIM2->CCR1
+                    │
+                    ▼
+             Hardware PWM
+                    │
+                    ▼
+                PA5 / LED
 ```
 
-to:
-
-```text
-Module 04
-TIM2
-   │
-   ▼
-Hardware Counter
-   │
-   ▼
-PWM Output
-```
-
-The STM32 can now generate a continuous PWM waveform while the CPU performs other tasks.
+The **CPU only updates the PWM command when an external event occurs**. The actual 1 kHz waveform continues to be generated by TIM2 hardware.
 
 ---
 
