@@ -79,17 +79,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  RCC-> APB2ENR |= (1U<<0);
-  RCC->AHB2ENR |= (1U << 2);
-  GPIOC->MODER &= ~(3U << (13 * 2));
-  SYSCFG-> EXTICR[3] &= ~(0x0FU << 4);  //Initialiser a 0
-  SYSCFG-> EXTICR[3] |= (2U << 4);
-  // Active la détection front montant sur la ligne 13
-   EXTI->RTSR1 |= (1U << 13);
-   // Démasque l'interruption sur la ligne 13
-   EXTI->IMR1 |= (1U << 13);
-   // Active l'interruption dans le NVIC
-   NVIC_EnableIRQ(EXTI15_10_IRQn);
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -109,49 +99,30 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     //uint32_t last_toggle_time = 0;
-
+    int16_t duty = 0;
+    //int8_t step = 5;
   while (1)
   {
-    /* USER CODE END WHILE
+    /* USER CODE END WHILE */
 
-	  duty += step;
-      if (duty >= 999) { duty = 999; step = -5; }
-      if (duty <= 0)   { duty = 0;   step = 5;  }
-
+	  //duty += step;
+      //if (duty >= 999) { duty = 999; step = -5; }
+      //if (duty <= 0)   { duty = 0;   step = 5;  }
+	  TIM2->CCR1 = 200;
+	  my_delay_ms(100);
       TIM2->CCR1 = duty; // Mise à jour directe du registre comparateur
-      my_delay_ms(5);    // Attente fluide
-       if (ms_ticks- last_toggle_time >=500) {last_toggle_time = ms_ticks; GPIOA->ODR ^=(1U << 5);}
-      */
-
+      my_delay_ms(400);    // Attente fluide
 	/* USER CODE BEGIN 3
-
 	  GPIOA->BSRR |= (1U << 5);
 	  my_delay_ms(500);
 
 	  GPIOA->BSRR |= (1U << (5+16));
 	  my_delay_ms(500);
-*/
+    */
   }
   /* USER CODE END 3 */
 }
 
-void EXTI15_10_IRQHandler (void)
-{
-	// 1. Vérifier si c'est bien la ligne 13 qui a provoqué l'interruption
-	if (EXTI->PR1 & (1U << 13))
-	{
-		// 2. OBLIGATOIRE : Effacer le bit pour acquitter (Write 1 to clear)
-		EXTI->PR1 |= (1U << 13);
-		static int16_t duty = 0;
-    	int16_t step = 250;
-    	duty += step;
-		if (duty>=999) {duty = 0;}
-		TIM2->CCR1 = (duty == 1000) ? 999 : duty;
-		// 3. Action : Inverser l'état de la LED verte (PA5)
-		// GPIOA->ODR ^= (1U << 5);
-		button_press_count++;
-	}
-}
 
 void My_SysTick_Init_1ms (void)
 {
