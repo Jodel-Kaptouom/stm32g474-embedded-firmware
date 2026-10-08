@@ -93,26 +93,37 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
-
+  RCC->AHB2ENR |= (1U << 2);   //active l'horloge sur PC13
+  GPIOC->MODER &= ~(3U << 13*2);  // mettre le port en entree
     /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     //uint32_t last_toggle_time = 0;
-    int16_t duty = 0;
-    //int8_t step = 5;
+    static int16_t duty = 0;
+    int16_t step = 250;
   while (1)
   {
     /* USER CODE END WHILE */
+	  if (GPIOC->IDR & (1U << 13))
+		  {
+			  my_delay_ms(20);
+			  duty += step;
+			  if (duty >= 999)   { duty = 0;}
+			  TIM2->CCR1 = duty;
+			  while (GPIOC->IDR & (1U << 13));
+			  my_delay_ms(20);
 
-	  //duty += step;
-      //if (duty >= 999) { duty = 999; step = -5; }
-      //if (duty <= 0)   { duty = 0;   step = 5;  }
+		  }
+
+
+
+	  /* USER CODE BEGIN 3
 	  TIM2->CCR1 = 200;
 	  my_delay_ms(100);
       TIM2->CCR1 = duty; // Mise à jour directe du registre comparateur
       my_delay_ms(400);    // Attente fluide
-	/* USER CODE BEGIN 3
+
 	  GPIOA->BSRR |= (1U << 5);
 	  my_delay_ms(500);
 
