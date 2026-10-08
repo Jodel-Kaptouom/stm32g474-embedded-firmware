@@ -45,6 +45,9 @@
  volatile uint32_t background_counter = 0;
  volatile uint32_t button_press_count = 0;
  volatile uint32_t ms_ticks = 0;
+ #define PWM_MAX  999
+ #define PWM_MIN  0
+ #define PWM_MID  500
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,6 +59,7 @@ void USART2_Init(void);
 void UART2_SendChar(char c);
 void UART2_SendString (char *str);
 void TIM2_PWM_Init(void);
+char USART2_GetChar(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -103,24 +107,40 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     //uint32_t last_toggle_time = 0;
-    static int16_t duty = 0;
-    int16_t step = 25;
+
   while (1)
   {
     /* USER CODE END WHILE */
-	  if (GPIOC->IDR & (1U << 13))
+	  // 1. Attente bloquante d'UN caractère du PC
+	  char rx = USART2_GetChar();
+	  // 2. Écho local pour voir ce qu'on tape dans le terminal
+	  UART2_SendChar(rx);
+	  UART2_SendString("\r\n");
+	  //my_delay_ms(1000);
+	  if (rx== '1')
 		  {
-			  my_delay_ms(20);
-			  duty += step;
-			  if (duty >= 999)   { duty = 0;}
-			  TIM2->CCR1 = duty;
-			  while (GPIOC->IDR & (1U << 13));
-			  my_delay_ms(20);
+		  	  TIM2->CCR1 = PWM_MAX;
+		  	  UART2_SendString("-> LED: MAX (100%)\r\n");
+			  my_delay_ms(500);
 
 		  }
+	  else if (rx == '0')
+		  {
+				TIM2->CCR1 = PWM_MIN;
+				UART2_SendString("-> LED: OFF (0%)\r\n");
+				my_delay_ms(500);
+		  }
+	  else if (rx == '5')
+		  {
+				TIM2->CCR1 = PWM_MID;
+				UART2_SendString("-> LED: MID (50%)\r\n");
+		  }
+	  else
+		  {
+				UART2_SendString("-> Commande inconnue (utilisez 0, 1 ou 5)\r\n");
+		  }
 
-	  UART2_SendString("Bare-Metal STM32G4 Online!\r\n");
-	  my_delay_ms(1000);
+
 	  /* USER CODE BEGIN 3
 	  TIM2->CCR1 = 200;
 	  my_delay_ms(100);
@@ -176,6 +196,15 @@ void UART2_SendChar(char c)
 	// Écrire le caractère
 	USART2->TDR = c;
 }
+char USART2_GetChar(void)
+{
+	while (!(USART2->ISR & (1U << 5)))
+	{
+		// ant que le bit RXNE (bit 5) du registre USART2->ISR est égal à 0.
+	}
+	return (char)(USART2->RDR & 0xFF);
+}
+
 void UART2_SendString (char *str)
 {
 	while (*str)
