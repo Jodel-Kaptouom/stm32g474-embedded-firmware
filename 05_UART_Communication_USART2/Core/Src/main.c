@@ -42,6 +42,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+ #include <stdio.h>
  volatile uint32_t background_counter = 0;
  volatile uint32_t button_press_count = 0;
  volatile uint32_t ms_ticks = 0;
@@ -120,24 +121,28 @@ int main(void)
 	  if (rx== '1')
 		  {
 		  	  TIM2->CCR1 = PWM_MAX;
-		  	  UART2_SendString("-> LED: MAX (100%)\r\n");
+		  	  printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
+		  	  //UART2_SendString("-> LED: MAX (100%)\r\n");
 			  my_delay_ms(500);
 
 		  }
 	  else if (rx == '0')
 		  {
 				TIM2->CCR1 = PWM_MIN;
-				UART2_SendString("-> LED: OFF (0%)\r\n");
+				printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
+				//UART2_SendString("-> LED: OFF (0%)\r\n");
 				my_delay_ms(500);
 		  }
 	  else if (rx == '5')
 		  {
 				TIM2->CCR1 = PWM_MID;
-				UART2_SendString("-> LED: MID (50%)\r\n");
+				printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
+				//UART2_SendString("-> LED: MID (50%)\r\n");
 		  }
 	  else
 		  {
-				UART2_SendString("-> Commande inconnue (utilisez 0, 1 ou 5)\r\n");
+		  	  	  printf("System not answer! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
+				//UART2_SendString("-> Commande inconnue (utilisez 0, 1 ou 5)\r\n");
 		  }
 
 
@@ -326,7 +331,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+int _write(int file, char *ptr, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        UART2_SendChar(*ptr++);
+    }
+    return len;
+}
 /* USER CODE END 4 */
 
 /**
