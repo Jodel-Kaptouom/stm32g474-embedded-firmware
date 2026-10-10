@@ -18,7 +18,9 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include "uart.h"
+#include "pwm.h"
+#include <stdio.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -42,27 +44,18 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
- #include <stdio.h>
  volatile uint32_t background_counter = 0;
  volatile uint32_t button_press_count = 0;
  volatile uint32_t ms_ticks = 0;
- #define PWM_MAX  999
- #define PWM_MIN  0
- #define PWM_MID  500
 /* USER CODE END PV */
 
-/* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-void My_SysTick_Init_1ms(void);
-void my_delay_ms(uint32_t delay);
-void USART2_Init(void);
-void UART2_SendChar(char c);
-void UART2_SendString (char *str);
-void TIM2_PWM_Init(void);
-char USART2_GetChar(void);
-/* USER CODE BEGIN PFP */
 
+/* USER CODE BEGIN PFP */
+ /* Private function prototypes -----------------------------------------------*/
+ void SystemClock_Config(void);
+ static void MX_GPIO_Init(void);
+ void My_SysTick_Init_1ms(void);
+ void my_delay_ms(uint32_t delay);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -111,40 +104,39 @@ int main(void)
 
   while (1)
   {
-    /* USER CODE END WHILE */
 	  // 1. Attente bloquante d'UN caractère du PC
-	  char rx = USART2_GetChar();
-	  // 2. Écho local pour voir ce qu'on tape dans le terminal
-	  UART2_SendChar(rx);
-	  UART2_SendString("\r\n");
-	  //my_delay_ms(1000);
-	  if (rx== '1')
-		  {
-		  	  TIM2->CCR1 = PWM_MAX;
-		  	  printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
-		  	  //UART2_SendString("-> LED: MAX (100%)\r\n");
-			  my_delay_ms(500);
+	  	  char rx = USART2_GetChar();
+	  	  // 2. Écho local pour voir ce qu'on tape dans le terminal
+	  	  USART2_SendChar(rx);
+	  	  USART2_SendString("\r\n");
+	  	  //my_delay_ms(1000);
+	  	  if (rx== '1')
+	  		  {
+	  		  	  TIM2->CCR1 = PWM_MAX;
+	  		  	  printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
+	  		  	  //USART2_SendString("-> LED: MAX (100%)\r\n");
+	  			  my_delay_ms(500);
 
-		  }
-	  else if (rx == '0')
-		  {
-				TIM2->CCR1 = PWM_MIN;
-				printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
-				//UART2_SendString("-> LED: OFF (0%)\r\n");
-				my_delay_ms(500);
-		  }
-	  else if (rx == '5')
-		  {
-				TIM2->CCR1 = PWM_MID;
-				printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
-				//UART2_SendString("-> LED: MID (50%)\r\n");
-		  }
-	  else
-		  {
-		  	  	  printf("System not answer! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
-				//UART2_SendString("-> Commande inconnue (utilisez 0, 1 ou 5)\r\n");
-		  }
-
+	  		  }
+	  	  else if (rx == '0')
+	  		  {
+	  				TIM2->CCR1 = PWM_MIN;
+	  				printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
+	  				//USART2_SendString("-> LED: OFF (0%)\r\n");
+	  				my_delay_ms(500);
+	  		  }
+	  	  else if (rx == '5')
+	  		  {
+	  				TIM2->CCR1 = PWM_MID;
+	  				printf("System Ready! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
+	  				//USART2_SendString("-> LED: MID (50%)\r\n");
+	  		  }
+	  	  else
+	  		  {
+	  		  	  	  printf("System not answer! Duty Cycle: %lu / %lu\r\n", TIM2->CCR1, TIM2->ARR);
+	  				//USART2_SendString("-> Commande inconnue (utilisez 0, 1 ou 5)\r\n");
+	  		  }
+    /* USER CODE END WHILE */
 
 	  /* USER CODE BEGIN 3
 	  TIM2->CCR1 = 200;
@@ -162,87 +154,45 @@ int main(void)
   /* USER CODE END 3 */
 }
 
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
 
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PB13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
+}
+
+/* USER CODE BEGIN 4 */
 void My_SysTick_Init_1ms (void)
 {
 	SysTick->LOAD = (16000000/1000) - 1; // 15999
 	SysTick->VAL = 0;   			// Remet le compteur à zéro
 	SysTick->CTRL |= (7U << 0);		// 0x07: Core Clock + Interrupt + Enable
 }
-void USART2_Init(void)
-{
-	// 1.L'horloge de GPIOA et celle de l'USART2.
-	RCC->APB1ENR1 |=(1U << 17);  	// L'horloge de l'USART2
-	RCC->AHB2ENR |= (1U << 0);		// L'horloge de GPIOA .
-	// 2. La configuration de PA2 et PA3 en Alternate Function (mode 10 dans MODER).
-	GPIOA->MODER &= ~(3U << (2*2));	//PA2 a 00
-	GPIOA->MODER |= (2U << (2*2));	// PA2 en AF
-	GPIOA->MODER &= ~(3U << (3*2));	//PA3 a 00
-	GPIOA->MODER |= (2U << (3*2));	// PA3 en AF
-	// 3. L'assignation de AF7 sur PA2 et PA3 dans AFR[0].
-	GPIOA->AFR[0] &= ~(0xFU << (2*4));  //AFR[0] pout les broches de 0 a 7
-	GPIOA->AFR[0] |= (0x07U << (2*4));
-	GPIOA->AFR[0] &= ~(0xFU << (3*4));
-	GPIOA->AFR[0] |= (0x07U << (3*4));
-	// 4. Le Baud Rate dans BRR
-	USART2->BRR = 139;
-	// 5. L'activation de TE, RE et UE dans CR1.
-	USART2->CR1 &= ~(0xFU << 0);
-	USART2->CR1 |= (0xDU << 0);
 
-}
-void UART2_SendChar(char c)
-{
-	// Attendre que le registre TDR soit vide (TXE = bit 7)
-	while (!(USART2->ISR & (1U << 7)))
-	{
-		// Tant quil est a 0 le TXE est plein et On attend que TXE passe à 1 pour ecrire a linterieur
-	}
-	// Écrire le caractère
-	USART2->TDR = c;
-}
-char USART2_GetChar(void)
-{
-	while (!(USART2->ISR & (1U << 5)))
-	{
-		// ant que le bit RXNE (bit 5) du registre USART2->ISR est égal à 0.
-	}
-	return (char)(USART2->RDR & 0xFF);
-}
-
-void UART2_SendString (char *str)
-{
-	while (*str)
-	{
-		UART2_SendChar(*str++);
-	}
-}
-void TIM2_PWM_Init(void)
-{
-	/* 1. Activer les horloges (GPIOA sur AHB2, TIM2 sur APB1) */
-	RCC->AHB2ENR |= (1U << 0);  // GPIOA
-	RCC->APB1ENR1 |= (1U << 0); // TIM2
-	/* 2. Configurer PA5 en Alternate Function AF1 (TIM2_CH1) */
-	GPIOA->MODER &= ~(3U << (5*2));
-	GPIOA->MODER |= (2U << (5*2));		// Mode AF (10) alternativ function
-
-	GPIOA->AFR[0] &= ~(0xFU << (5*4));
-	GPIOA->AFR[0] |= (1U << (5*4));
-	/* 3. Base de temps : 1 kHz */
-	TIM2->PSC = 15;						// Fréquence compteur = 1 MHz
-	TIM2->ARR = 999;					// Période PWM = 1 ms (1 kHz)
-	TIM2->CCR1 = 250;					// Rapport cyclique initial = 25%
-	/* 4. Configuration du Canal 1 en mode PWM 1 */
-	TIM2->CCMR1 &= ~(0x7U << 4); 		// Nettoie OC1M
-	TIM2->CCMR1 |= (0x6U << 4);			// OC1M = 0110 (PWM mode 1)
-	TIM2->CCMR1 |= (1U << 3);
-	/* 5. Activer la sortie physique du canal 1 */
-	TIM2->CCER |= (1U << 0);			// CC1E = 1
-	/* 6. Démarrer le timer */
-	TIM2->CR1 |=(1U << 0);				// CEN = 1
-
-
-}
 
 /*
 void SysTick_Handler (void)
@@ -299,46 +249,7 @@ void SystemClock_Config(void)
   }
 }
 
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
 
-  /* USER CODE END MX_GPIO_Init_1 */
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PB13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
-
-  /* USER CODE END MX_GPIO_Init_2 */
-}
-
-/* USER CODE BEGIN 4 */
-int _write(int file, char *ptr, int len)
-{
-    for (int i = 0; i < len; i++)
-    {
-        UART2_SendChar(*ptr++);
-    }
-    return len;
-}
 /* USER CODE END 4 */
 
 /**
