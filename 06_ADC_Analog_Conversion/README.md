@@ -4,6 +4,8 @@ This module implements a **register-level ADC1 driver** on the STM32G474RE, with
 
 The firmware measures the analog voltage on **PA0**, converts it to millivolts with integer arithmetic and prints the result over the USART2 link from Module 05.
 
+As an integration exercise, the measurement also sets the TIM2 PWM duty cycle from Module 04, which turns a potentiometer and the LED on PA5 into a **light dimmer**.
+
 ---
 
 ## Table of Contents
@@ -15,6 +17,7 @@ The firmware measures the analog voltage on **PA0**, converts it to millivolts w
 * [Conversion](#conversion)
 * [Voltage Calculation](#voltage-calculation)
 * [Application](#application)
+* [Integration Exercise](#integration-exercise-potentiometer-controlled-led-dimmer)
 * [Verification](#verification)
 * [Key Registers](#key-registers)
 * [Engineering Notes](#engineering-notes)
@@ -33,6 +36,7 @@ The firmware measures the analog voltage on **PA0**, converts it to millivolts w
 * Run a single software-triggered conversion by polling.
 * Convert the raw 12-bit result to millivolts without floating point.
 * Print the measurement over USART2 with `printf`.
+* Scale the ADC result to the PWM range to control the LED brightness with a potentiometer.
 
 ---
 
@@ -268,6 +272,69 @@ USART2
 
 ---
 
+# Integration Exercise: Potentiometer-Controlled LED Dimmer
+
+This exercise connects three modules: the ADC1 result sets the TIM2 PWM duty cycle, so the potentiometer controls the brightness of the LED on PA5.
+
+```text
+Potentiometer
+     │
+     ▼
+PA0 ── ADC1 ── raw (0 to 4095)
+                  │
+                  ▼
+           Scaling to 0..999
+                  │
+                  ▼
+           TIM2->CCR1 ── PWM 1 kHz ── PA5 ── LED
+```
+
+### Scaling
+
+The ADC delivers a 12-bit value from 0 to 4095. TIM2 expects a compare value from 0 to 999 in `CCR1`, because `ARR = 999`. The raw value is therefore rescaled:
+
+```text
+CCR1 = raw × 999 / 4095
+```
+
+```c
+uint16_t raw_value = ADC1_read();
+
+TIM2->CCR1 = (raw_value * 999) / 4095;
+```
+
+The largest intermediate value is `4095 × 999 = 4 090 905`, which fits in 32 bits, so integer arithmetic is sufficient.
+
+| Potentiometer | Raw value | `CCR1` | Duty cycle |
+| ------------- | --------- | ------ | ---------- |
+| Minimum       | 0         | 0      | 0 %        |
+| Middle        | 2048      | 499    | 49.9 %     |
+| Maximum       | 4095      | 999    | 99.9 %     |
+
+The duty cycle is `CCR1 / (ARR + 1)`.
+
+### Modules involved
+
+```text
+ADC1 (Module 06)
+   │
+   └── Reads the potentiometer
+
+TIM2 (Module 04)
+   │
+   └── Generates the PWM that drives the LED
+
+USART2 (Module 05)
+   │
+   └── Prints the measurement
+
+SysTick
+   │
+   └── Sets the loop period
+```
+
+---
+
 # Verification
 
 Open a serial terminal on the ST-LINK Virtual COM Port at 115200 baud, 8N1, as in Module 05.
@@ -281,6 +348,8 @@ Test points on PA0:
 | Potentiometer wiper     | 0 to 4095          | follows the knob    |
 
 For the potentiometer, connect its two outer pins to 3V3 and GND and its wiper to PA0.
+
+For the dimmer exercise, turn the potentiometer from one end to the other: the LED on PA5 must go from off to full brightness, and the printed value must follow.
 
 **Never apply more than 3.3 V to PA0.**
 
@@ -318,6 +387,7 @@ ADC1->DR
 | `ADC1->SMPR1`       | Sampling time, `SMP1` (bits 5:3)                                          |
 | `ADC1->SQR1`        | Sequence length `L` (bits 3:0), first conversion `SQ1` (bits 10:6)        |
 | `ADC1->DR`          | Conversion result                                                         |
+| `TIM2->CCR1`        | PWM duty cycle, written from the scaled ADC result                        |
 
 ---
 
@@ -338,6 +408,10 @@ The ADC ignores `ADSTART` while `ADEN = 0`, and calibration requires the voltage
 ### Sampling time and source impedance
 
 The sampling capacitor needs time to charge through the impedance of the signal source. The default sampling time of 2.5 cycles (about 0.16 µs at 16 MHz) is too short for a high-impedance source such as a potentiometer and gives unstable readings. A long sampling time trades conversion speed for accuracy, which is acceptable at four measurements per second.
+
+### Scaling range of the dimmer
+
+With `ARR = 999`, one PWM period has 1000 counter steps. Scaling to 999 gives a maximum duty cycle of 99.9 %, so the output still has a 1 µs low pulse at full scale. Scaling with `raw × 1000 / 4095` instead reaches a true 100 %. The difference is invisible on an LED, but it matters for loads that need a continuous level.
 
 ### Current architecture: polling
 
@@ -408,6 +482,8 @@ Analog Measurement
 ```
 
 The firmware can now read the analog world, in addition to driving outputs and communicating with a host PC.
+
+With the dimmer exercise, an analog input controls a hardware PWM output for the first time: a complete signal chain from input to actuator.
 
 ---
 
