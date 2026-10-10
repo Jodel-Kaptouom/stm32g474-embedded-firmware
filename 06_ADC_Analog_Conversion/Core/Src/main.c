@@ -108,9 +108,10 @@ int main(void)
 	  uint16_t raw_value = ADC1_read();
 	  // Calcul en millivolts : (raw_value * 3300) / 4095
 	  uint32_t adc_value = (raw_value*3300)/4095;
-
-	  printf("ADC Raw: %4u | Tension: %lu mV (%lu.%02lu V)\r\n",
-	             raw_value, adc_value, adc_value / 1000, (adc_value % 1000) / 10);
+	  uint32_t pwm_value = (raw_value*999)/4095;
+	  TIM2->CCR1 = pwm_value;
+	  printf("ADC Raw: %4u | Tension: %lu mV (%lu.%02lu V) | PWM value: %lu\r\n",
+	             raw_value, adc_value, adc_value / 1000, (adc_value % 1000) / 10, pwm_value);
 	  my_delay_ms(250);
 
     /* USER CODE END WHILE */
