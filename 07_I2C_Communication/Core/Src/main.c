@@ -58,6 +58,7 @@
  static void MX_GPIO_Init(void);
  void My_SysTick_Init_1ms(void);
  void my_delay_ms(uint32_t delay);
+ void LCD_Init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -85,11 +86,15 @@ int main(void)
   USART2_Init();
   ADC1_Init();
   I2C1_Init();
-  for (uint8_t a = 0x08; a < 0x78; a++)
+  LCD_Init();
+  /*for (uint8_t a = 0x08; a < 0x78; a++)
   {
       if (I2C1_Probe(a) == I2C_OK)
           printf("Composant I2C trouve a 0x%02X\r\n", a);
-  }
+  }*/
+  LCD_SetCursor(0, 0);
+  LCD_SendString("STM32G4 BareMetal");
+  char buf[17]; // 16 caractères max par ligne + '\0'
   /* USER CODE END Init */
 
 
@@ -117,18 +122,23 @@ int main(void)
 	  uint32_t adc_value = (raw_value*3300)/4095;
 	  uint32_t pwm_value = (raw_value*999)/4095;
 	  TIM2->CCR1 = pwm_value;
-	  //printf("ADC Raw: %4u | Tension: %lu mV (%lu.%02lu V) | PWM value: %lu\r\n",
-	    //         raw_value, adc_value, adc_value / 1000, (adc_value % 1000) / 10, pwm_value);
+	  printf("ADC Raw: %4u | Tension: %lu mV (%lu.%02lu V) | PWM value: %lu\r\n",
+	             raw_value, adc_value, adc_value / 1000, (adc_value % 1000) / 10, pwm_value);
 	  //my_delay_ms(250);
-	  if (I2C1_WriteByte(0x27, 0x08) != I2C_OK)
-	      printf("Erreur I2C\r\n");
-	  if (I2C1_WriteByte(LCD_ADDR, 0x00) != I2C_OK)   // rétroéclairage éteint
-	      printf("Erreur I2C (OFF)\r\n");
+	  /* Formater la chaîne pour la ligne 2 du LCD */
+	  snprintf(buf, sizeof(buf), "V:%lu.%02luV RAW:%4u", adc_value / 1000, (adc_value % 1000) / 10, raw_value);
+
+	  LCD_SetCursor(1, 0);
+	  LCD_SendString(buf);
+	  my_delay_ms(200);
+
+	  /*if (I2C1_WriteByte(LCD_ADDR, 0x00) == I2C_OK)   // rétroéclairage éteint
+	      printf("Done I2C (OFF)\r\n");
 	  my_delay_ms(250);
 
-	  if (I2C1_WriteByte(LCD_ADDR, 0x08) != I2C_OK)   // rétroéclairage allumé
-	      printf("Erreur I2C (ON)\r\n");
-	  my_delay_ms(250);
+	  if (I2C1_WriteByte(LCD_ADDR, 0x08) == I2C_OK)   // rétroéclairage allumé
+	      printf("Done I2C (ON)\r\n");
+	  my_delay_ms(250);*/
     /* USER CODE END WHILE */
 
 	  /* USER CODE BEGIN 3*/
@@ -191,7 +201,32 @@ void my_delay_ms(uint32_t delay)
 		// On attend que les interruptions SysTick fassent monter ms_ticks
 	}
 }
+void LCD_Init(void)
+{
+    /* 1. Attendre > 40 ms après la montée de VCC à 5V */
+    my_delay_ms(50);
 
+    /* 2. Séquence de réveil en mode 8 bits (on envoie uniquement le nibble haut) */
+    LCD_SendNibble(0x30U, 0U);
+    my_delay_ms(5);          // Attendre > 4.1 ms
+
+    LCD_SendNibble(0x30U, 0U);
+    my_delay_ms(1);          // Attendre > 100 µs
+
+    LCD_SendNibble(0x30U, 0U);
+    my_delay_ms(1);
+
+    /* 3. Basculer officiellement en interface 4 bits */
+    LCD_SendNibble(0x20U, 0U);
+    my_delay_ms(1);
+
+    /* 4. Configuration complète du LCD (maintenant que le mode 4 bits est actif) */
+    LCD_SendCommand(0x28U);  // Function Set : 4 bits, 2 lignes, police 5x8
+    LCD_SendCommand(0x08U);  // Display OFF
+    LCD_Clear();             // Effacer l'écran
+    LCD_SendCommand(0x06U);  // Entry Mode Set : incrémenter le curseur vers la droite
+    LCD_SendCommand(0x0CU);  // Display ON, Curseur OFF, Clignotement OFF
+}
 /**
   * @brief System Clock Configuration
   * @retval None

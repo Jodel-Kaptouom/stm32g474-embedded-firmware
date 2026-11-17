@@ -5,7 +5,7 @@
 void I2C1_Init (void)
 {
 	/* 1. Horloges */
-	RCC->APB1ENR1 |= (1U << 21);		// i2c
+	RCC->APB1ENR1 |= (1U << 21);	// i2c
 	RCC->AHB2ENR |= (1U << 1);		// GPIOB
 
 	/* 2. PB8 und PB9 en mode AF */
@@ -62,13 +62,13 @@ int I2C1_WriteByte(uint8_t slave_addr, uint8_t data)
 
 	/* 3. Attendre TXIS (bit 1), ou un NACK (bit 4) si l'esclave ne répond pas */
 	t = I2C_TIMEOUT;
-	while (!(I2C1->ISR & (1U << 1)))
+	while (!(I2C1->ISR & (1U << 1))) // TXIS bit 1 pret a recevoir loctet
 	{
-		if (I2C1->ISR & (1U << 4))    // NACKF
+		if (I2C1->ISR & (1U << 4))    // NACKF lesclave a repondu ou pas
 		{
 			/* Avec AUTOEND, le matériel envoie le STOP tout seul : on l'attend */
 			t = I2C_TIMEOUT;
-			while (!(I2C1->ISR & (1U << 5)))
+			while (!(I2C1->ISR & (1U << 5))) // le bit S 5 le bit top
 			{
 				if (--t == 0) break;
 			}
@@ -120,3 +120,53 @@ int I2C1_Probe(uint8_t slave_addr)
 	I2C1->ICR = (1U << 4) | (1U << 5);
 	return ack ? I2C_OK : I2C_ERR_NACK;
 }
+
+void LCD_SendNibble (uint8_t nibble, uint8_t rs)
+{
+	/* 1. Assembler l'octet : 4 bits hauts de donnée + Backlight + bit RS */
+	uint8_t data = (nibble & 0xF0U) | LCD_BACKLIGHT | (rs & 0x01U);
+	/* 2. Impulsion Enable : front montant (EN = 1) puis front descendant (EN = 0) */
+	I2C1_WriteByte(LCD_ADDR, data | LCD_ENABLE);
+	I2C1_WriteByte(LCD_ADDR, data & ~LCD_ENABLE);
+}
+
+void LCD_SendByte(uint8_t val, uint8_t rs)
+{
+	/*Appelle LCD_SendNibble avec les 4 bits de poids fort de val*/
+	LCD_SendNibble(val & 0xF0, rs & 0x01U);
+	/* Appelle LCD_SendNibble avec les 4 bits de poids faible décalés de 4 positions vers la gauche */
+	LCD_SendNibble((val<<4) & 0xF0, rs & 0x01U);
+}
+
+void LCD_SendCommand(uint8_t cmd)
+{
+    LCD_SendByte(cmd, 0U); // RS = 0 : Mode Commande
+}
+
+void LCD_SendChar(char c)
+{
+    LCD_SendByte((uint8_t)c, 1U); // RS = 1 : Mode Donnée (caractère ASCII)
+}
+
+void LCD_SendString(const char *str)
+{
+    while (*str)
+    {
+        LCD_SendChar(*str++);
+    }
+}
+
+void LCD_Clear(void)
+{
+    LCD_SendCommand(0x01U); // Commande Clear Display
+    //my_delay_ms(2);         // L'effacement prend ~1.52 ms sur le HD44780
+}
+
+void LCD_SetCursor(uint8_t row, uint8_t col)
+{
+    /* Ligne 0 commence à l'adresse DDRAM 0x00, Ligne 1 à 0x40 */
+    uint8_t addr = (row == 0) ? (0x80U + col) : (0xC0U + col);
+    LCD_SendCommand(addr);
+}
+
+
