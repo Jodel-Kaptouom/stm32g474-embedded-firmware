@@ -1,6 +1,6 @@
 # Module 07: Bare-Metal I2C Communication and HD44780 LCD Display
 
-This module implements a **register-level I2C1 master driver** on the STM32G474RE, without the STM32 HAL I2C driver, and builds an **HD44780 character LCD driver** on top of it.
+This module implements a **Register-level I2C1 master driver** on the STM32G474RE, without the STM32 HAL I2C driver, and builds an **HD44780 character LCD driver** on top of it.
 
 The module is built in three steps:
 
