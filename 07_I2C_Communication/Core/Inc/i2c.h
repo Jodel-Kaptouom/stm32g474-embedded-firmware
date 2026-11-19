@@ -39,12 +39,9 @@
 /* USER CODE BEGIN EC */
 
 /* USER CODE END EC */
-#define LCD_ADDR  		0x27
 #define I2C_OK            0
 #define I2C_ERR_TIMEOUT  -1
 #define I2C_ERR_NACK     -2
-#define LCD_BACKLIGHT 0x08U  // Bit 3 = 1 (rétroéclairage allumé)
-#define LCD_ENABLE    0x04U  // Bit 2 = 1 (broche EN)
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
 
@@ -52,15 +49,8 @@
 
 /* Exported functions prototypes ---------------------------------------------*/
 void I2C1_Init(void);
-int I2C1_WriteByte(uint8_t slave_addr, uint8_t data);
-void I2C1_Scan(void);
-void LCD_SendNibble(uint8_t nibble, uint8_t rs);
-void LCD_SendByte(uint8_t val, uint8_t rs);
-void LCD_SendCommand(uint8_t cmd);
-void LCD_SendChar(char c);
-void LCD_SendString(const char *str);
-void LCD_Clear(void);
-void LCD_SetCursor(uint8_t row, uint8_t col);
+int  I2C1_WriteByte(uint8_t slave_addr, uint8_t data);
+int  I2C1_Probe(uint8_t slave_addr);
 
 /* USER CODE BEGIN EFP */
 
